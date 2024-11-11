@@ -1,9 +1,15 @@
-clear 
-close all
-clc
+%% this code is used to test whether the relationship in brain patterns and associated cognition patterns
+%% based on latent variables (resulting from PLS analysis)
+%% differs between FTD subtypes
 
-%% Specify the model version: 'BNT', 'CDR', 'min', or 'max'
-version = 'max';
+%% we are running a linear regression model for each significant latent variable
+%% cognition ~ brain * DX
+
+%% Specify the model version: 'max', 'min', 'BNT', 'CDR'
+
+    version = 'max';
+
+%either run PLS script right before or load saved results and pick number of components to analyse
 
 if strcmp(version, 'min')
 load results_PLS_min

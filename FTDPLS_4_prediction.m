@@ -1,9 +1,16 @@
-clear
-close all
-clc
+%% this is where we run the FTD subtype classification model
+%% in a cross-validated loop
+%% the resulting table includes accuracies, sensitivity, specificity, and balanced accuracies
+%% for all model inputs that are selected (brain scores only, cognition scores only, or both)
+%% and for longitudinal validation
 
-%% Specify the model version: 'BNT', 'CDR', 'min', or 'max'
-version = 'max';
+%% Specify the model version: 'max', 'min', 'BNT', 'CDR'
+
+    version = 'max';
+
+%% pick which inputs you want to run (both = brain + cognition patters, neur = only brain, cogn = only cognition)
+
+modelList = {'both','neur','cogn'};
 
 %set seed for reproducibility
 rng(82);
@@ -19,12 +26,14 @@ elseif strcmp(version, 'BNT')
 else
 end
 
-n_comp = 4; % number of components to use
-tablemax=readtable('tabletrain.csv');
+n_comp = 4; % number of components to use (based on how many were significant)
 
-modelList = {'both','neur','cogn'};
+%% add table with all participants that were included in the maximal model (to compare performance in that sample)
+
+tablemax=readtable('table_maxsample.csv');
 
 %% crossvalidated prediction analysis
+
 temp = cell(numel(modelList), 1);
 
 for i = 1:numel(modelList)  
@@ -66,10 +75,12 @@ for i = 1:numel(modelList)
 
     %index for CDR matched (lower severity) participants
     ind_cdr_lt1 = tabletrain.CDR_TOT<1.5;
+
     %index for participants in max model (to compare with min model)
     [~, idx1] = ismember(tablemax.LONI_ID, tabletrain.LONI_ID);idx1=idx1(idx1>0);
 
     %prediction loop
+
     for r = 1:100 % do it 100 times to get an accurate estimate
         r
         indices = crossvalind('Kfold',size(X_all,1),10); % 10-fold cross validation indices
@@ -86,7 +97,9 @@ for i = 1:numel(modelList)
             Y_hat_lng(ind_lng,1)=predict(Mdl,X_lng(ind_lng,:));
 
         end
-        % prediction accuracy, the %of correct predictions
+
+        % save prediction accuracy
+
         Accuracy(r,1) = sum(Y_all==Y_hat)/size(Y_all,1);
         Accuracy_cs(r,1) = sum(Y_cs==Y_hat_cs)/size(Y_cs,1);
         Accuracy_lng(r,1) = sum(Y_lng==Y_hat_lng)/size(Y_lng,1);
@@ -133,142 +146,133 @@ for i = 1:numel(modelList)
         Sensitivity_SV_max(r,1) = sum((Y_all(idx1)==2)&(Y_hat(idx1)==2))/sum(Y_all(idx1)==2);
         Sensitivity_PNFA_max(r,1) = sum((Y_all(idx1)==3)&(Y_hat(idx1)==3))/sum(Y_all(idx1)==3);
 
+        %display accuracy in current loop
         sum(Y_all==Y_hat)/size(Y_all,1)
+
     end
 
-    % %% overall accuracy, crosssectional
-    % [mean(Accuracy) std(Accuracy)]
-    % [mean(Sensitivity_BV) std(Sensitivity_BV)]
-    % [mean(Sensitivity_SV) std(Sensitivity_SV)]
-    % [mean(Sensitivity_PNFA) std(Sensitivity_PNFA)]
-    %
-    % [mean(Specificity_BV) std(Specificity_BV)]
-    % [mean(Specificity_SV) std(Specificity_SV)]
-    % [mean(Specificity_PNFA) std(Specificity_PNFA)]
-    %
-    % %balanced accuracies
-    % (mean(Specificity_BV) + mean(Sensitivity_BV))/2
-    % (mean(Specificity_SV) + mean(Sensitivity_SV))/2
-    % (mean(Specificity_PNFA) + mean(Sensitivity_PNFA))/2
-    %
-    % %% accuracy crosssectional, sample with lng data
-    % [mean(Accuracy_cs) std(Accuracy_cs)]
-    % [mean(Sensitivity_BV_cs) std(Sensitivity_BV_cs)]
-    % [mean(Sensitivity_SV_cs) std(Sensitivity_SV_cs)]
-    % [mean(Sensitivity_PNFA_cs) std(Sensitivity_PNFA_cs)]
-    %
-    % [mean(Specificity_BV_cs) std(Specificity_BV_cs)]
-    % [mean(Specificity_SV_cs) std(Specificity_SV_cs)]
-    % [mean(Specificity_PNFA_cs) std(Specificity_PNFA_cs)]
-    %
-    % %% accuracy longitudinal
-    % [mean(Accuracy_lng) std(Accuracy_lng)]
-    %
-    % [mean(Sensitivity_BV_lng) std(Sensitivity_BV_lng)]
-    % [mean(Sensitivity_SV_lng) std(Sensitivity_SV_lng)]
-    % [mean(Sensitivity_PNFA_lng) std(Sensitivity_PNFA_lng)]
-    %
-    % [mean(Specificity_BV_lng) std(Specificity_BV_lng)]
-    % [mean(Specificity_SV_lng) std(Specificity_SV_lng)]
-    % [mean(Specificity_PNFA_lng) std(Specificity_PNFA_lng)]
-    %
-    % %% accuarcy in CDR matched sample
-    % [mean(Accuracy_CDR_lt1) std(Accuracy_CDR_lt1)]
-    %
-    % [mean(Sensitivity_BV_lt1) std(Sensitivity_BV_lt1)]
-    % [mean(Sensitivity_SV_lt1) std(Sensitivity_SV_lt1)]
-    % [mean(Sensitivity_PNFA_lt1) std(Sensitivity_PNFA_lt1)]
-    %
-    % [mean(Specificity_BV_lt1) std(Specificity_BV_lt1)]
-    % [mean(Specificity_SV_lt1) std(Specificity_SV_lt1)]
-    % [mean(Specificity_PNFA_lt1) std(Specificity_PNFA_lt1)]
-    %
-    % %% accuracy min in sample of max model
-    % [mean(Accuracy_CDR_max) std(Accuracy_CDR_max)]
-    %
-    % [mean(Sensitivity_BV_max) std(Sensitivity_BV_max)]
-    % [mean(Sensitivity_SV_max) std(Sensitivity_SV_max)]
-    % [mean(Sensitivity_PNFA_max) std(Sensitivity_PNFA_max)]
-    %
-    % [mean(Specificity_BV_max) std(Specificity_BV_max)]
-    % [mean(Specificity_SV_max) std(Specificity_SV_max)]
-    % [mean(Specificity_PNFA_max) std(Specificity_PNFA_max)]
+   % save all results in a table
+Results = table;   
+Results.model = models;
 
-    % Calculate overall accuracy and relevant metrics
-    Results = table;   
-    Results.model = models;
+% Overall accuracy metrics (cross-sectional)
+Results.Overall_Accuracy = [round(mean(Accuracy) * 100, 2)];
+Results.Overall_sd = [round(std(Accuracy) * 100, 2)];% Convert to percentage
+Results.Sensitivity = struct('bvFTD', [round(mean(Sensitivity_BV) * 100, 2), round(std(Sensitivity_BV) * 100, 2)], ...
+                             'svPPA', [round(mean(Sensitivity_SV) * 100, 2), round(std(Sensitivity_SV) * 100, 2)], ...
+                             'nfvPPA', [round(mean(Sensitivity_PNFA) * 100, 2), round(std(Sensitivity_PNFA) * 100, 2)]);
 
-    % Overall accuracy (cross-sectional)
-    Results.Overall_Accuracy = [mean(Accuracy), std(Accuracy)];
-    Results.Sensitivity_BV = [mean(Sensitivity_BV), std(Sensitivity_BV)];
-    Results.Sensitivity_SV = [mean(Sensitivity_SV), std(Sensitivity_SV)];
-    Results.Sensitivity_PNFA = [mean(Sensitivity_PNFA), std(Sensitivity_PNFA)];
-    Results.Specificity_BV = [mean(Specificity_BV), std(Specificity_BV)];
-    Results.Specificity_SV = [mean(Specificity_SV), std(Specificity_SV)];
-    Results.Specificity_PNFA = [mean(Specificity_PNFA), std(Specificity_PNFA)];
+Results.Specificity = struct('bvFTD', [round(mean(Specificity_BV) * 100, 2), round(std(Specificity_BV) * 100, 2)], ...
+                             'svPPA', [round(mean(Specificity_SV) * 100, 2), round(std(Specificity_SV) * 100, 2)], ...
+                             'nfvPPA', [round(mean(Specificity_PNFA) * 100, 2), round(std(Specificity_PNFA) * 100, 2)]);
 
-    % Balanced accuracies
-    Results.Balanced_Accuracy_BV = (mean(Specificity_BV) + mean(Sensitivity_BV)) / 2;
-    Results.Balanced_Accuracy_SV = (mean(Specificity_SV) + mean(Sensitivity_SV)) / 2;
-    Results.Balanced_Accuracy_PNFA = (mean(Specificity_PNFA) + mean(Sensitivity_PNFA)) / 2;
+% Balanced accuracies
+Results.Balanced_Accuracy = struct('bvFTD', round(((mean(Specificity_BV) + mean(Sensitivity_BV)) / 2) * 100, 2), ...
+                                   'svPPA', round(((mean(Specificity_SV) + mean(Sensitivity_SV)) / 2) * 100, 2), ...
+                                   'nfvPPA', round(((mean(Specificity_PNFA) + mean(Sensitivity_PNFA)) / 2) * 100, 2));
 
-    % Accuracy (cross-sectional, sample with longitudinal data)
-    Results.Accuracy_cs = [mean(Accuracy_cs), std(Accuracy_cs)];
-    Results.Sensitivity_BV_cs = [mean(Sensitivity_BV_cs), std(Sensitivity_BV_cs)];
-    Results.Sensitivity_SV_cs = [mean(Sensitivity_SV_cs), std(Sensitivity_SV_cs)];
-    Results.Sensitivity_PNFA_cs = [mean(Sensitivity_PNFA_cs), std(Sensitivity_PNFA_cs)];
-    Results.Specificity_BV_cs = [mean(Specificity_BV_cs), std(Specificity_BV_cs)];
-    Results.Specificity_SV_cs = [mean(Specificity_SV_cs), std(Specificity_SV_cs)];
-    Results.Specificity_PNFA_cs = [mean(Specificity_PNFA_cs), std(Specificity_PNFA_cs)];
+% Longitudinal accuracy metrics
+Results.Longitudinal_Accuracy = [round(mean(Accuracy_lng) * 100, 2)]; % Convert to percentage
+Results.Longitudinal_sd = [round(std(Accuracy_lng) * 100, 2)]; % Convert to percentage
 
-    % Accuracy (longitudinal)
-    Results.Accuracy_lng = [mean(Accuracy_lng), std(Accuracy_lng)];
-    Results.Sensitivity_BV_lng = [mean(Sensitivity_BV_lng), std(Sensitivity_BV_lng)];
-    Results.Sensitivity_SV_lng = [mean(Sensitivity_SV_lng), std(Sensitivity_SV_lng)];
-    Results.Sensitivity_PNFA_lng = [mean(Sensitivity_PNFA_lng), std(Sensitivity_PNFA_lng)];
-    Results.Specificity_BV_lng = [mean(Specificity_BV_lng), std(Specificity_BV_lng)];
-    Results.Specificity_SV_lng = [mean(Specificity_SV_lng), std(Specificity_SV_lng)];
-    Results.Specificity_PNFA_lng = [mean(Specificity_PNFA_lng), std(Specificity_PNFA_lng)];
+Results.Longitudinal_Sensitivity = struct(...
+    'bvFTD', [round(mean(Sensitivity_BV_lng) * 100, 2), round(std(Sensitivity_BV_lng) * 100, 2)], ...
+    'svPPA', [round(mean(Sensitivity_SV_lng) * 100, 2), round(std(Sensitivity_SV_lng) * 100, 2)], ...
+    'nfvPPA', [round(mean(Sensitivity_PNFA_lng) * 100, 2), round(std(Sensitivity_PNFA_lng) * 100, 2)]);
 
-    % Accuracy (CDR matched sample)
-    Results.Accuracy_CDR_lt1 = [mean(Accuracy_CDR_lt1), std(Accuracy_CDR_lt1)];
-    Results.Sensitivity_BV_lt1 = [mean(Sensitivity_BV_lt1), std(Sensitivity_BV_lt1)];
-    Results.Sensitivity_SV_lt1 = [mean(Sensitivity_SV_lt1), std(Sensitivity_SV_lt1)];
-    Results.Sensitivity_PNFA_lt1 = [mean(Sensitivity_PNFA_lt1), std(Sensitivity_PNFA_lt1)];
-    Results.Specificity_BV_lt1 = [mean(Specificity_BV_lt1), std(Specificity_BV_lt1)];
-    Results.Specificity_SV_lt1 = [mean(Specificity_SV_lt1), std(Specificity_SV_lt1)];
-    Results.Specificity_PNFA_lt1 = [mean(Specificity_PNFA_lt1), std(Specificity_PNFA_lt1)];
+Results.Longitudinal_Specificity = struct(...
+    'bvFTD', [round(mean(Specificity_BV_lng) * 100, 2), round(std(Specificity_BV_lng) * 100, 2)], ...
+    'svPPA', [round(mean(Specificity_SV_lng) * 100, 2), round(std(Specificity_SV_lng) * 100, 2)], ...
+    'nfvPPA', [round(mean(Specificity_PNFA_lng) * 100, 2), round(std(Specificity_PNFA_lng) * 100, 2)]);
 
-    % Accuracy (max sample)
-    Results.Accuracy_CDR_max = [mean(Accuracy_CDR_max), std(Accuracy_CDR_max)];
-    Results.Sensitivity_BV_max = [mean(Sensitivity_BV_max), std(Sensitivity_BV_max)];
-    Results.Sensitivity_SV_max = [mean(Sensitivity_SV_max), std(Sensitivity_SV_max)];
-    Results.Sensitivity_PNFA_max = [mean(Sensitivity_PNFA_max), std(Sensitivity_PNFA_max)];
-    Results.Specificity_BV_max = [mean(Specificity_BV_max), std(Specificity_BV_max)];
-    Results.Specificity_SV_max = [mean(Specificity_SV_max), std(Specificity_SV_max)];
-    Results.Specificity_PNFA_max = [mean(Specificity_PNFA_max), std(Specificity_PNFA_max)];
+% Balanced accuracies
+Results.Longitudinal_Balanced_Accuracy = struct(...
+    'bvFTD', round(((mean(Specificity_BV_lng) + mean(Sensitivity_BV_lng)) / 2) * 100, 2), ...
+    'svPPA', round(((mean(Specificity_SV_lng) + mean(Sensitivity_SV_lng)) / 2) * 100, 2), ...
+    'nfvPPA', round(((mean(Specificity_PNFA_lng) + mean(Sensitivity_PNFA_lng)) / 2) * 100, 2));
 
-    %% Save the results
-     temp{i} = Results;
+% CDR matched sample accuracy
+Results.CDR_Matched_Accuracy = [round(mean(Accuracy_CDR_lt1) * 100, 2)];
+Results.CDR_Matched_sd = [round(std(Accuracy_CDR_lt1) * 100, 2)];
+
+Results.CDR_Matched_Sensitivity = struct(...
+    'bvFTD', [round(mean(Sensitivity_BV_lt1) * 100, 2), round(std(Sensitivity_BV_lt1) * 100, 2)], ...
+    'svPPA', [round(mean(Sensitivity_SV_lt1) * 100, 2), round(std(Sensitivity_SV_lt1) * 100, 2)], ...
+    'nfvPPA', [round(mean(Sensitivity_PNFA_lt1) * 100, 2), round(std(Sensitivity_PNFA_lt1) * 100, 2)]);
+
+Results.CDR_Matched_Specificity = struct(...
+    'bvFTD', [round(mean(Specificity_BV_lt1) * 100, 2), round(std(Specificity_BV_lt1) * 100, 2)], ...
+    'svPPA', [round(mean(Specificity_SV_lt1) * 100, 2), round(std(Specificity_SV_lt1) * 100, 2)], ...
+    'nfvPPA', [round(mean(Specificity_PNFA_lt1) * 100, 2), round(std(Specificity_PNFA_lt1) * 100, 2)]);
+
+Results.CDR_Matched_Balanced_Accuracy = struct(...
+    'bvFTD', round(((mean(Specificity_BV_lt1) + mean(Sensitivity_BV_lt1)) / 2) * 100, 2), ...
+    'svPPA', round(((mean(Specificity_SV_lt1) + mean(Sensitivity_SV_lt1)) / 2) * 100, 2), ...
+    'nfvPPA', round(((mean(Specificity_PNFA_lt1) + mean(Sensitivity_PNFA_lt1)) / 2) * 100, 2));
+
+% Max sample accuracy
+Results.Max_Sample_Accuracy = [round(mean(Accuracy_CDR_max) * 100, 2)];
+Results.Max_Sample_sd = [round(std(Accuracy_CDR_max) * 100, 2)];
+
+Results.Max_Sample_Sensitivity = struct(...
+    'bvFTD', [round(mean(Sensitivity_BV_max) * 100, 2), round(std(Sensitivity_BV_max) * 100, 2)], ...
+    'svPPA', [round(mean(Sensitivity_SV_max) * 100, 2), round(std(Sensitivity_SV_max) * 100, 2)], ...
+    'nfvPPA', [round(mean(Sensitivity_PNFA_max) * 100, 2), round(std(Sensitivity_PNFA_max) * 100, 2)]);
+
+Results.Max_Sample_Specificity = struct(...
+    'bvFTD', [round(mean(Specificity_BV_max) * 100, 2), round(std(Specificity_BV_max) * 100, 2)], ...
+    'svPPA', [round(mean(Specificity_SV_max) * 100, 2), round(std(Specificity_SV_max) * 100, 2)], ...
+    'nfvPPA', [round(mean(Specificity_PNFA_max) * 100, 2), round(std(Specificity_PNFA_max) * 100, 2)]);
+
+Results.Max_Sample_Balanced_Accuracy = struct(...
+    'bvFTD', round(((mean(Specificity_BV_max) + mean(Sensitivity_BV_max)) / 2) * 100, 2), ...
+    'svPPA', round(((mean(Specificity_SV_max) + mean(Sensitivity_SV_max)) / 2) * 100, 2), ...
+    'nfvPPA', round(((mean(Specificity_PNFA_max) + mean(Sensitivity_PNFA_max)) / 2) * 100, 2));
+
+temp{i} = Results;
+
 end
 
-finalTable = temp{1};
-for r = 2:length(temp)
-    finalTable = outerjoin(finalTable, temp{r}, 'MergeKeys', true);
+% create more readable table
+
+table1 = temp{1};
+table2 = temp{2};
+table3 = temp{3};
+mergedTable = vertcat(table1, table2, table3);
+
+summary = table();
+for i = 1:height(mergedTable)
+    tempStruct = struct();
+    fields = mergedTable.Properties.VariableNames; 
+    for j = 1:length(fields)
+        fieldName = fields{j};
+        if isstruct(mergedTable.(fieldName)(i)) 
+            subFields = fieldnames(mergedTable.(fieldName)(i)); 
+            for k = 1:length(subFields)
+                subFieldName = subFields{k};
+               tempStruct.([fieldName '_' subFieldName]) = mergedTable.(fieldName)(i).(subFieldName);
+            end
+        else
+            tempStruct.(fieldName) = mergedTable.(fieldName)(i); 
+        end
+    end
+    summary = [summary; struct2table(tempStruct)];
 end
 
-switch version
-    case 'max'
-        writetable(summary, 'predictionresults_max.csv');
-    case 'min'
-        writetable(summary, 'predictionresults_min.csv');
-    case 'CDR'
-        writetable(summary, 'predictionresults_CDR.csv');
-    case 'BNT'
-        writetable(summary, 'predictionresults_BNT.csv');
-end
+summary.cohort(1:3,:)="UCSF";
+summary = movevars(summary, "cohort", "Before", "model");
+summary.version(1:3,:)="min";
+summary = movevars(summary, "version", "Before", "cohort");
+
+% save results
+% allresults=readtable('predictionresults.csv');
+% writetable(summary, 'temp.csv');
+% temp=readtable('temp.csv');
+% temp=[allresults;temp];
+% writetable(temp, 'predictionresults.csv');
 
 %% print numbers of subjects in each model
+
 [unique_vals, ~, idx] = unique(dx_included);
 accumarray(idx, 1)
 

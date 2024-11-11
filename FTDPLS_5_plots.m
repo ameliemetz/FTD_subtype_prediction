@@ -3,16 +3,13 @@
 %this code produces plots for PLS analysis results (brain patterns)
 %other plots produced in R
 
-clear
-close all
-clc
-
 addpath(genpath('/data/dadmah/resources/Pls'));
 addpath(genpath('/data/datamah/in_vivo_Datasets/NIFD'));
 addpath(genpath('/data/datamah/in_vivo_Datasets/NIFD/PLS'));
 
-%% Specify the model version: 'BNT', 'CDR', 'min', or 'max'
-version = 'max';
+%% Specify the model version: 'max', 'min'
+
+    version = 'max';
 
 if strcmp(version, 'min')
     load results_PLS_min
@@ -23,6 +20,7 @@ else
 end
 
 %% plotting covariance explained and p values for the latent variables
+
 figure
 colororder({'#D55E00'});
 plot((result.s.^2)./sum(result.s.^2),'MarkerSize',14, 'Color' ,'#0072B2', 'Marker', '.', 'LineStyle','none');hold on;xlabel('Latent Variable');ylabel('% Covariance');hold on
@@ -37,7 +35,8 @@ else
     print(strcat('plot_signLVs_min',cell2mat(dx_grps(dx_grp))),'-dpng');
 end
 
-%% thresholded brain maps
+%% thresholded brain maps (we are using this code: https://github.com/VANDAlab/Plotting-Tools/blob/main/Plotting_Atlas.m)
+
 for comp=c3
     cerebra_regions=double(result.boot_result.orig_corr(:,comp));
     pass_region = (sign(result.boot_result.llcorr(:,comp).*result.boot_result.ulcorr(:,comp)))>0;
@@ -47,7 +46,7 @@ for comp=c3
     for j=[50,80,90,100]
         Plotting_Atlas(ones(102,1),cerebra_regions,'axial',j,'',2,2,plot_number);plot_number=plot_number+1;
     end
-
+end
     if strcmp(version, 'max')
         switch comp
             case 1
@@ -78,6 +77,7 @@ colormap(cmap); % apply new colormap
 colorbar()
 
 %% thresholded surface brain maps
+
 brainregions=readtable('cerebraindices - Sheet2.csv','Delimiter',',');
 
 for comp=c3
@@ -154,6 +154,7 @@ for comp=c3
 end
 
 %% plot relationship between brain and cognition scores
+
 if strcmp(version,'max')
     for comp = c3
         figure;

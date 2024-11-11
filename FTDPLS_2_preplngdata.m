@@ -1,21 +1,24 @@
-clear
-close all
-clc
+%% this code creates clean tables for longitudinal data (1-year follow-up)
+%% these will be used in the classification algorithm as an in-sample validation dataset
 
-version = 'max';
+%% Specify the model version: 'max', 'min', 'BNT', 'CDR'
 
-if strcmp(version, 'min')
-    load results_PLS_min
-elseif strcmp(version, 'max')
-    load results_PLS_max
-elseif strcmp(version, 'CDR')
-    load results_PLS_CDR
+    version = 'max';
+
+%either run PLS script right before or load saved results and pick number of components to analyse
+
+if strcmp(version, 'max')
+load results_PLS_max
+elseif strcmp(version, 'min')
+load results_PLS_min
 elseif strcmp(version, 'BNT')
-    load results_PLS_BNT
+load results_PLS_BNT
+elseif strcmp(version, 'CDR')
+load results_PLS_CDR
 else
 end
 
-%% pick timepoint closest to one year
+%% pick timepoint closest to one year after baseline
 
 for i=1:size(Info_Lng,1)
     tmp=cell2mat(Info_Lng.DOB(i));
@@ -30,6 +33,7 @@ for i = 1:numel(ids)
 end
 
 % determine which timepoint has all data available
+
 Lng = Info_Lng(Info_Lng.TimefromBaseline~=0,:);
 rows_with_nan = false(height(Lng), 1);
 for col = ind_beh
@@ -40,6 +44,7 @@ Lng(rows_with_nan, :) = [];
 Lng.Keep = zeros(height(Lng), 1);
 
 %pick closest to one year
+
 unique_ids = unique(Lng.LONI_ID);
 
 for i = 1:length(unique_ids)
@@ -56,10 +61,12 @@ datalng=Lng(Lng.Keep == 1,:);
 database=Info;
 datalng.Sex = ismember(datalng.GENDER,2);
 
+%separate controls
+
 datalng_control=datalng(strcmp(datalng.DXg,'NC'),:);
 datalng = datalng(ismember(datalng.DXg,dx_grps(dx_grp)),:);
 
-%% create individual brain and cognitive scores for each longitudinal visit
+%% create separate tables for brain and cognitive scores for longitudinal visit
 
 datalng_beh = datalng(:,ind_beh);
 datalng_beh_mat = table2array(datalng_beh);
@@ -69,32 +76,37 @@ datalng_brain = datalng(:,ind_brain); % indices for the brain data you want to i
 datalng_brain_mat = table2array(datalng_brain);
 
 %% remove the NaN cases
+
 [r1,c1]=find(isnan(datalng_beh_mat));
 [r2,c2]=find(isnan(datalng_brain_mat));
 r=[r1;r2];
+
+%save list of diagnoses/IDs and table of all included participants
+
 dxlng_included=datalng.DX(setdiff(1:size(datalng_brain_mat,1),r));
 tablelng=datalng(setdiff(1:size(datalng_brain_mat,1),r),:);
 datalng_beh_mat = datalng_beh_mat(setdiff(1:size(datalng_beh_mat,1),r),:);
 datalng_brain_mat = datalng_brain_mat(setdiff(1:size(datalng_brain_mat,1),r),:);
 
-%% Zscoring the data
-%% this is equivalent of zscoring data_beh_mat and data_brain_mat
+%% Zscoring the data based on baseline mean and sd
+
 x = data_beh_mat;y = data_brain_mat;
 means_x=mean(data_beh_mat);stds_x=std(data_beh_mat);
 means_y=mean(data_brain_mat);stds_y=std(data_brain_mat);
 x=(x-repmat(means_x,size(x,1),1))./repmat(stds_x,size(x,1),1);
 y=(y-repmat(means_y,size(y,1),1))./repmat(stds_y,size(y,1),1);
-%% this is equivalent of zscoring datalng_beh_mat and datalng_brain_mat based on means of data_beh_mat and data_brain_mat
+
 xlng = datalng_beh_mat;ylng = datalng_brain_mat;
 xlng=(xlng-repmat(means_x,size(xlng,1),1))./repmat(stds_x,size(xlng,1),1);
 ylng=(ylng-repmat(means_y,size(ylng,1),1))./repmat(stds_y,size(ylng,1),1);
 
-%% tables for CVprediction
+%% create tables for used for prediction algorithm
 
 %get subjects included in lng projection
 [~, idx1] = ismember(tablelng.LONI_ID, tabletrain.LONI_ID);idx1=idx1(idx1>0);
 [~, idx2] = ismember(tabletrain.LONI_ID, tablelng.LONI_ID);idx2=idx2(idx2>0);
 
+%get PLS results for 4 latent variables (significant in max model)
 X_test = [xlng*result_reverse.v(:,1:4),ylng*result_reverse.u(:,1:4)] ;
 X_all = [result.usc(:,1:4),result.vsc(:,1:4)];
 Xlng = X_test(idx2, :);
@@ -107,9 +119,9 @@ if strcmp(version, 'max')
     save results_PLS_max_lng
 elseif strcmp(version, 'min')
     save results_PLS_min_lng
-elseif strcmp(version, 'CDR')
-    save results_PLS_CDR_lng
 elseif strcmp(version, 'BNT')
     save results_PLS_BNT_lng
+elseif strcmp(version, 'CDR')
+    save results_PLS_CDR_lng
 else
 end
