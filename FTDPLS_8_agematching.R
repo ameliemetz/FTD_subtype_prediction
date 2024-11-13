@@ -43,6 +43,7 @@ Info$age_years <- interval(Info$DOB, Info$CLINICAL_LINKDATE) %/% years(1)
 
 #pick baseline visit
 Info <- Info %>%
+  arrange(LONI_ID, CLINICAL_LINKDATE) %>%
   group_by(LONI_ID) %>%
   mutate(visit = row_number()) %>%
   ungroup()
