@@ -40,6 +40,7 @@ Info[, ind_beh] <- as.data.frame(data_subset)
 
 # select baseline visit
 Info <- Info %>%
+  arrange(LONI_ID, CLINICAL_LINKDATE) %>%
   group_by(LONI_ID) %>%
   mutate(visit = row_number()) %>%
   ungroup()
